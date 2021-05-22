@@ -5,10 +5,9 @@
 # imports
 import json
 from PIL import Image
-from Object3D import Object3D
-from OrthographicCamera import OrthographicCamera
-from Hit import Hit
-from Sphere import Sphere
+from Cameras import *
+from RayHit import *
+from Objects import *
 from Group import Group
 from Vector3 import *
 
@@ -68,7 +67,7 @@ def RenderDepth(filename, camera, group, background, near, far):
 
 
 def RenderScene(scene, near, far):
-    with open(scene + '.json') as f:
+    with open("Data/" + scene + '.json') as f:
         data = json.load(f)
 
     camPos = data['orthocamera']['center']
@@ -84,7 +83,6 @@ def RenderScene(scene, near, far):
 
     group = Group()
 
-
     for item in data['group']:
         sCenter = item['sphere']['center']
         sCenterVec = Vector3(sCenter[0], sCenter[1], sCenter[2])
@@ -92,13 +90,11 @@ def RenderScene(scene, near, far):
         color = item['sphere']['color']
         group.add(Sphere(sCenterVec, radius, color))
 
-    Render(scene + '.jpg', camera, group, background)
-    RenderDepth(scene + "_depth.jpg", camera, group, background, near, far)
+    Render("Render/" + scene + '.jpg', camera, group, background)
+    RenderDepth("Render/" + scene + "_depth.jpg", camera, group, background, near, far)
 
 
 print("Started")
 RenderScene('scene1', 9, 11)
 RenderScene('scene2', 8, 11.5)
 print("Finished")
-
-

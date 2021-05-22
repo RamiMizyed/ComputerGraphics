@@ -1,4 +1,4 @@
-import Object3D
+from Objects import Object3D
 
 
 class Transformation(Object3D):
