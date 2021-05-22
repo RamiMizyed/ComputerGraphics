@@ -14,9 +14,9 @@ class Object3D:
 
 class Plane(Object3D):
     def __init__(self, normal: Vector3, d, color):
+        super().__init__(color)
         self.normal = normal
         self.d = d
-        self.color = color
 
     def intersect(self, ray: Ray, hit, tmin):
         denominator: float = self.normal.dot(ray.direction)
@@ -54,7 +54,8 @@ class Sphere(Object3D):
 
 class Triangle(Object3D):
 
-    def __init__(self, v1: Vector3, v2: Vector3, v3: Vector3):
+    def __init__(self, v1: Vector3, v2: Vector3, v3: Vector3, color):
+        super().__init__(color)
         self.v1 = v1
         self.v2 = v2
         self.v3 = v3
