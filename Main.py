@@ -10,7 +10,7 @@ from RayHit import *
 from Objects import *
 from Group import Group
 from Vector3 import *
-
+from tqdm import tqdm
 
 # main render function takes a json file with needed information
 
@@ -25,7 +25,7 @@ def Render(filename, camera, group, background):
         for x in range(resX):
             pixels[x, y] = tuple(background)
 
-    for y in range(resY):
+    for y in tqdm(range(resY)):
         yy = y / resY
         for x in range(resX):
             xx = x / resX
@@ -34,9 +34,21 @@ def Render(filename, camera, group, background):
             for object in group.objects:
                 object.intersect(ray, hit, 0.0)
                 if hit.t > 0:
-                    pixels[x, y] = tuple(hit.color)
+                    pixels[x, resY - y - 1] = tuple(hit.color)
 
     img.save(filename, format="JPEG")
+
+
+def test():
+    resX = 500
+    resY = 500
+    img = Image.new("RGB", (resX, resY))
+    pixels = img.load()
+    for y in range(resY):
+        for x in range(resX):
+            pixels[x, resY - y - 1] = tuple([int((x * 255 / resX)), int(y * 255 / resY), 64])
+
+    img.show()
 
 
 def RenderDepth(filename, camera, group, background, near, far):
@@ -50,9 +62,10 @@ def RenderDepth(filename, camera, group, background, near, far):
         for x in range(resX):
             pixels[x, y] = tuple(background)
 
-    for y in range(resY):
+    for y in tqdm(range(resY)):
         yy = y / resY
         for x in range(resX):
+
             xx = x / resX
             ray = camera.Generate_ray(xx, yy)
             hit = Hit()
@@ -60,8 +73,8 @@ def RenderDepth(filename, camera, group, background, near, far):
                 object.intersect(ray, hit, 0.0)
                 if hit.t > 0:
                     depth_1 = (far - hit.t) / (far - near)
-                    depth = int((1 - depth_1) * 255)
-                    pixels[x, y] = tuple([depth, depth, depth])
+                    depth = int(depth_1 * 255)
+                    pixels[x, resY - y - 1] = tuple([depth, depth, depth])
 
     img.save(filename, format="JPEG")
 
@@ -81,7 +94,7 @@ def RenderScene(scene, near, far):
     camera = OrthographicCamera(camVec, camDirVec, camUpVec, size)
     background = data['background']['color']
 
-    group = Group()
+    group = Group([0, 0, 0])
 
     for item in data['group']:
         sCenter = item['sphere']['center']

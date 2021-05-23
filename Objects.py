@@ -41,14 +41,19 @@ class Sphere(Object3D):
 
     def intersect(self, ray: Vector3, hit, tmin):
         L: Vector3 = self.center - ray.origin
+        if L.magnitude() < self.radius:
+            return
         tca: float = L.dot(ray.direction)
+        if tca < 0:
+            return
         d2: float = L.dot(L) - tca * tca
         radius2 = self.radius * self.radius
-        if d2 > radius2:
+        if d2 > radius2 or d2 < 0:
             return
         thc: float = sqrt(radius2 - d2)
         t0 = tca - thc
         hit.t = t0
+        hit.color = self.color
         # t1 = tca + thc
 
 

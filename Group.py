@@ -5,6 +5,7 @@ from Objects import Object3D
 class Group(Object3D):
     def __init__(self, color):
         super().__init__(color)
+        self.color = color
         self.objects = []
 
     def add(self, object):

@@ -1,3 +1,6 @@
+import math
+
+
 class Vector3:
     def __init__(self, a=0, b=0, c=0):
         self.x = a
@@ -35,7 +38,10 @@ class Vector3:
         return self ^ other
 
     def dot(self, other):
-        return  self.x * other.x + self.y * other.y + self.z * other.z
+        return self.x * other.x + self.y * other.y + self.z * other.z
 
     def __str__(self):
         return "(" + str(self.x) + "," + str(self.y) + "," + str(self.z) + ")"
+
+    def magnitude(self):
+        return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
