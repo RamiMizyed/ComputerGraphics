@@ -4,6 +4,7 @@ from math import sqrt
 from RayHit import *
 
 
+# why isn't color a Vector 3 or an array ?
 class Object3D:
     def __init__(self, color):
         self.color = color
@@ -25,6 +26,9 @@ class Plane(Object3D):
         distance: Vector3 = ray.origin - self.d
         t: float = (-self.normal.dot(distance)) / denominator
         hit.t = t
+
+    def updates(self):
+        pass
 
 
 class Sphere(Object3D):
@@ -54,6 +58,7 @@ class Sphere(Object3D):
         t0 = tca - thc
         hit.t = t0
         hit.color = self.color
+        # pass the normal at intersection point
         # t1 = tca + thc
 
 
@@ -66,4 +71,15 @@ class Triangle(Object3D):
         self.v3 = v3
 
     def intersect(self, ray, hit, tmin):
+        pass
+
+
+class Transformation(Object3D):
+
+    def __init__(self, color, TransformationMatrix, object):
+        super().__init__(color)
+        self.TransformationMatrix = np.zeros(4, 4)
+        self.object = Object3D
+
+    def intersect(self, ray: Vector3, hit: Vector3, tmin):
         pass

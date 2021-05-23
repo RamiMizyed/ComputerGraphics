@@ -22,7 +22,7 @@ class OrthographicCamera(Camera):
 
 class PerspectiveCamera(Camera):
 
-    def __init__(self, center, direction, up, angle):
+    def __init__(self, center: Vector3, direction: Vector3, up: Vector3, angle):
         self.center = center
         self.direction = direction
         self.up = up
