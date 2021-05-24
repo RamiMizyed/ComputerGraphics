@@ -4,28 +4,43 @@
 
 # imports
 import json
+from builtins import map
+
 from PIL import Image
 from Cameras import *
 from RayHit import *
 from Objects import *
 from Group import Group
-from Vector3 import *
+from Vector3Math import Vector3
 from tqdm import tqdm
+from Lights import *
+
+resX = 1000
+resY = 1000
+
 
 # main render function takes a json file with needed information
+def add(x, y):
+    return x + y
 
 
-def Render(filename, camera, group, background):
-    resX = 500
-    resY = 500
+def mul(x, y):
+    return x * y
+
+
+def mulI(x, y):
+    return int(x * y)
+
+
+def Render(filename, camera, group, background, light : DirectionalLight, ambient):
     img = Image.new("RGB", (resX, resY))
     pixels = img.load()
 
     for y in range(resY):
         for x in range(resX):
-            pixels[x, y] = tuple(background)
+            pixels[x, y] = tuple([int(background[0] * 255), int(background[1] * 255), int(background[2] * 255)])
 
-    for y in tqdm(range(resY)):
+    for y in tqdm(range(resY), desc="Render Loop"):
         yy = y / resY
         for x in range(resX):
             xx = x / resX
@@ -34,14 +49,18 @@ def Render(filename, camera, group, background):
             for object in group.objects:
                 object.intersect(ray, hit, 0.0)
                 if hit.t > 0:
-                    pixels[x, resY - y - 1] = tuple(hit.color)
+                    lightDir = Vector3(-light.direction.x, -light.direction.y, -light.direction.z).normal()
+                    lightIntensity = max(hit.normal.dot(lightDir), 0)
+                    ambientColor = tuple(map(mul, hit.color, ambient))
+                    diffuseColor = tuple(map(mul, hit.color, light.color))
+                    diffuseColor = tuple(map(mul, diffuseColor, [lightIntensity, lightIntensity, lightIntensity]))
+                    finalColor = list(map(add, ambientColor, diffuseColor))
+                    pixels[x, resY - y - 1] = tuple(map(mulI, finalColor, [255, 255, 255]))
 
     img.save(filename, format="JPEG")
 
 
 def test():
-    resX = 500
-    resY = 500
     img = Image.new("RGB", (resX, resY))
     pixels = img.load()
     for y in range(resY):
@@ -52,17 +71,14 @@ def test():
 
 
 def RenderDepth(filename, camera, group, background, near, far):
-    resX = 500
-    resY = 500
-
     img = Image.new("RGB", (resX, resY), "black")
     pixels = img.load()
 
     for y in range(resY):
         for x in range(resX):
-            pixels[x, y] = tuple(background)
+            pixels[x, y] = tuple([int(background[0] * 255), int(background[1] * 255), int(background[2] * 255)])
 
-    for y in tqdm(range(resY)):
+    for y in tqdm(range(resY), desc="DepthRender", colour="White"):
         yy = y / resY
         for x in range(resX):
 
@@ -82,6 +98,11 @@ def RenderDepth(filename, camera, group, background, near, far):
 def RenderScene(scene, near, far):
     with open("Data/" + scene + '.json') as f:
         data = json.load(f)
+    lightDirection = data["light"]["direction"]
+    lightDirectionVec = Vector3(lightDirection[0], lightDirection[1], lightDirection[2])
+    lightColor = data["light"]["color"]
+    light: DirectionalLight = DirectionalLight(lightDirectionVec, lightColor)
+    ambient = data["background"]["ambient"]
 
     camPos = data['orthocamera']['center']
     camVec = Vector3(camPos[0], camPos[1], camPos[2])
@@ -103,11 +124,12 @@ def RenderScene(scene, near, far):
         color = item['sphere']['color']
         group.add(Sphere(sCenterVec, radius, color))
 
-    Render("Render/" + scene + '.jpg', camera, group, background)
+    Render("Render/" + scene + '.jpg', camera, group, background, light, ambient)
     RenderDepth("Render/" + scene + "_depth.jpg", camera, group, background, near, far)
 
 
 print("Started")
-RenderScene('scene1', 9, 11)
-RenderScene('scene2', 8, 11.5)
+RenderScene('scene1_diffuse', 9, 11)
+RenderScene('scene2_ambient', 8, 11.5)
+RenderScene('scene3_perspective', 8, 11.5)
 print("Finished")

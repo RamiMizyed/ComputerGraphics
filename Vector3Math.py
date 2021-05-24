@@ -2,10 +2,10 @@ import math
 
 
 class Vector3:
-    def __init__(self, a=0, b=0, c=0):
-        self.x = a
-        self.y = b
-        self.z = c
+    def __init__(self, x: float, y: float, z: float):
+        self.x = x
+        self.y = y
+        self.z = z
 
     def __add__(self, other):
         return Vector3(self.x + other.x, self.y + other.y, self.z + other.z)
@@ -45,3 +45,11 @@ class Vector3:
 
     def magnitude(self):
         return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+
+    def normal(self):
+        mag = self.magnitude()
+        vec = Vector3(0,0,0)
+        vec.x = self.x / mag
+        vec.y = self.y / mag
+        vec.z = self.z / mag
+        return vec

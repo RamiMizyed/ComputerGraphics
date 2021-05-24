@@ -1,4 +1,4 @@
-from Vector3 import Vector3
+from Vector3Math import Vector3
 from RayHit import Ray
 
 

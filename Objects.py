@@ -1,5 +1,5 @@
 import numpy as np
-from Vector3 import *
+from Vector3Math import *
 from math import sqrt
 from RayHit import *
 
@@ -9,12 +9,12 @@ class Object3D:
     def __init__(self, color):
         self.color = color
 
-    def intersect(self, ray: Vector3, hit: Vector3, tmin):
+    def intersect(self, ray: Vector3Math, hit: Vector3Math, tmin):
         pass
 
 
 class Plane(Object3D):
-    def __init__(self, normal: Vector3, d, color):
+    def __init__(self, normal: Vector3Math, d, color):
         super().__init__(color)
         self.normal = normal
         self.d = d
@@ -33,7 +33,7 @@ class Plane(Object3D):
 
 class Sphere(Object3D):
 
-    def __init__(self, center: Vector3, radius: float, color):
+    def __init__(self, center: Vector3Math, radius: float, color):
         Object3D.__init__(self, color)
         self.center = center
         self.radius = radius
@@ -43,7 +43,7 @@ class Sphere(Object3D):
     # thc is the distance from the point of intersection to where its perpendicular ...
     # D is the distance from center of sphere to base of the triangle
 
-    def intersect(self, ray: Vector3, hit, tmin):
+    def intersect(self, ray: Vector3Math, hit, tmin):
         L: Vector3 = self.center - ray.origin
         if L.magnitude() < self.radius:
             return
@@ -58,13 +58,15 @@ class Sphere(Object3D):
         t0 = tca - thc
         hit.t = t0
         hit.color = self.color
+        p0 = ray.origin + ray.direction * t0
+        hit.normal = (p0 - self.center).normal()
         # pass the normal at intersection point
         # t1 = tca + thc
 
 
 class Triangle(Object3D):
 
-    def __init__(self, v1: Vector3, v2: Vector3, v3: Vector3, color):
+    def __init__(self, v1: Vector3Math, v2: Vector3Math, v3: Vector3Math, color):
         super().__init__(color)
         self.v1 = v1
         self.v2 = v2
@@ -81,5 +83,5 @@ class Transformation(Object3D):
         self.TransformationMatrix = np.zeros(4, 4)
         self.object = Object3D
 
-    def intersect(self, ray: Vector3, hit: Vector3, tmin):
+    def intersect(self, ray: Vector3Math, hit: Vector3Math, tmin):
         pass
