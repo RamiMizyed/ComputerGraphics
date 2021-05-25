@@ -48,7 +48,7 @@ class Vector3:
 
     def normal(self):
         mag = self.magnitude()
-        vec = Vector3(0,0,0)
+        vec = Vector3(0, 0, 0)
         vec.x = self.x / mag
         vec.y = self.y / mag
         vec.z = self.z / mag
