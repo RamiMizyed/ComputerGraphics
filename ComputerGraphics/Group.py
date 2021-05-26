@@ -1,4 +1,4 @@
-import Vector3Math
+from cgtypes import *
 from Objects import Object3D
 
 
@@ -11,6 +11,6 @@ class Group(Object3D):
     def add(self, object):
         self.objects.append(object)
 
-    def intersect(self, ray: Vector3Math, hit: Vector3Math, tmin):
+    def intersect(self, ray: vec3, hit: vec3, tmin):
         for item in self.objects:
             item.intersect(ray, hit, tmin)

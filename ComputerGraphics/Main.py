@@ -11,12 +11,12 @@ from Cameras import *
 from RayHit import *
 from Objects import *
 from Group import Group
-from Vector3Math import Vector3
 from tqdm import tqdm
 from Lights import *
+from cgtypes import *
 
-resX = 200
-resY = 200
+resX = 300
+resY = 300
 
 
 # main render function takes a json file with needed information
@@ -49,8 +49,12 @@ def Render(filename, camera, group, background, light: DirectionalLight, ambient
             for object in group.objects:
                 object.intersect(ray, hit, 0.0)
                 if hit.t > 0 and hit.intersect is True:
-                    lightDir = Vector3(-light.direction.x, -light.direction.y, -light.direction.z).normal()
-                    lightIntensity = max(hit.normal.dot(lightDir), 0)
+                    transposeM: mat4 = object.transformationMatrix.inverse().transpose()
+
+                    normalTransposed: vec3 = (transposeM * hit.normal).normalize()
+
+                    lightDir = vec3(-light.direction.x, -light.direction.y, -light.direction.z).normalize()
+                    lightIntensity = max(normalTransposed * lightDir, 0)
                     ambientColor = tuple(map(mul, hit.color, ambient))
                     diffuseColor = tuple(map(mul, hit.color, light.color))
                     diffuseColor = tuple(map(mul, diffuseColor, [lightIntensity, lightIntensity, lightIntensity]))
@@ -99,58 +103,105 @@ def RenderScene(scene, near, far):
     with open("Data/" + scene + '.json') as f:
         data = json.load(f)
     lightDirection = data["light"]["direction"]
-    lightDirectionVec = Vector3(lightDirection[0], lightDirection[1], lightDirection[2])
+    lightDirectionVec = vec3(lightDirection[0], lightDirection[1], lightDirection[2])
     lightColor = data["light"]["color"]
     light: DirectionalLight = DirectionalLight(lightDirectionVec, lightColor)
     ambient = data["background"]["ambient"]
 
     if "orthocamera" in data.keys():
         camPos = data['orthocamera']['center']
-        camVec = Vector3(camPos[0], camPos[1], camPos[2])
+        camVec = vec3(camPos[0], camPos[1], camPos[2])
         camDir = data['orthocamera']['direction']
-        camDirVec = Vector3(camDir[0], camDir[1], camDir[2])
+        camDirVec = vec3(camDir[0], camDir[1], camDir[2])
         camUp = data['orthocamera']['up']
-        camUpVec = Vector3(camUp[0], camUp[1], camUp[2])
+        camUpVec = vec3(camUp[0], camUp[1], camUp[2])
         size = data['orthocamera']['size']
         camera = OrthographicCamera(camVec, camDirVec, camUpVec, size)
     elif "perspectivecamera" in data.keys():
         camPos = data['perspectivecamera']['center']
-        camVec = Vector3(camPos[0], camPos[1], camPos[2])
+        camVec = vec3(camPos[0], camPos[1], camPos[2])
         camDir = data['perspectivecamera']['direction']
-        camDirVec = Vector3(camDir[0], camDir[1], camDir[2])
+        camDirVec = vec3(camDir[0], camDir[1], camDir[2])
         camUp = data['perspectivecamera']['up']
-        camUpVec = Vector3(camUp[0], camUp[1], camUp[2])
+        camUpVec = vec3(camUp[0], camUp[1], camUp[2])
         angle = data['perspectivecamera']['angle']
         camera = PerspectiveCamera(camVec, camDirVec, camUpVec, angle)
 
     background = data['background']['color']
     group = Group([0, 0, 0])
     for item in data['group']:
+        finalMatrix = mat4(1.0)
+        if 'transform' in item.keys():
+            for transformation in item['transform']["transformations"]:
+                if 'zrotate' in transformation.keys():
+                    zrotate = transformation['zrotate']
+                    zrotate = zrotate * math.pi / 180
+                    mate = mat4(1.0)
+                    zvec = vec3(0, 0, 1)
+                    newRotatedMatrixZ = mate.rotation(zrotate, zvec)
+                    finalMatrix = finalMatrix * newRotatedMatrixZ
+                if 'xrotate' in transformation.keys():
+                    xrotate = transformation['xrotate']
+                    xrotate = xrotate * math.pi / 180
+                    mate = mat4(1.0)
+                    xvec = vec3(1, 0, 0)
+                    newRotatedMatrixX = mate.rotation(xrotate, xvec)
+                    finalMatrix = finalMatrix * newRotatedMatrixX
+                if 'yrotate' in transformation.keys():
+                    yrotate = transformation['yrotate']
+                    yrotate = yrotate * math.pi / 180
+                    mate = mat4(1.0)
+                    yvec = vec3(0, 1, 0)
+                    newRotatedMatrixY = mate.rotation(yrotate, yvec)
+                    finalMatrix = finalMatrix * newRotatedMatrixY
 
+                if 'scale' in transformation.keys():
+                    mate = mat4(1.0)
+                    transformations = transformation['scale']
+                    transformations = vec3(transformations[0], transformations[1], transformations[2])
+                    scaleMatrix = mate.scaling(transformations)
+                    finalMatrix = finalMatrix * scaleMatrix
+                if 'translate' in transformation.keys():
+                    mate = mat4(1.0)
+                    translate = transformation['translate']
+                    translate = vec3(translate[0], translate[1], translate[2])
+                    transMatrix = mate.translation(translate)
+                    finalMatrix = finalMatrix * transMatrix
+            item = item["transform"]["object"]
+        objectTransformation = None
         if "sphere" in item.keys():
             sCenter = item['sphere']['center']
-            sCenterVec = Vector3(sCenter[0], sCenter[1], sCenter[2])
+            sCenterVec = vec3(sCenter[0], sCenter[1], sCenter[2])
             radius = item['sphere']['radius']
             color = item['sphere']['color']
-            group.add(Sphere(sCenterVec, radius, color))
+            objectTransformation = Transformation([0, 0, 0], finalMatrix, Sphere(sCenterVec, radius, color))
+        elif "plane" in item.keys():
+            normal = item['plane']['normal']
+            normal = vec3(normal[0], normal[1], normal[2])
+            offset = item['plane']['offset']
+            color = item['plane']['color']
+            objectTransformation = Transformation([0, 0, 0], finalMatrix, Plane(normal, offset, color))
         elif "triangle" in item.keys():
             v1 = item["triangle"]["v1"]
-            v1 = Vector3(v1[0], v1[1], v1[2])
+            v1 = vec3(v1[0], v1[1], v1[2])
             v2 = item["triangle"]["v2"]
-            v2 = Vector3(v2[0], v2[1], v2[2])
+            v2 = vec3(v2[0], v2[1], v2[2])
             v3 = item["triangle"]["v3"]
-            v3 = Vector3(v3[0], v3[1], v3[2])
+            v3 = vec3(v3[0], v3[1], v3[2])
             color = item['triangle']['color']
-            group.add(Triangle(v1, v2, v3, color))
-
+            objectTransformation = Transformation([0, 0, 0], finalMatrix, Triangle(v1, v2, v3, color))
+        group.add(objectTransformation)
     Render("Render/" + scene + '.jpg', camera, group, background, light, ambient)
     RenderDepth("Render/" + scene + "_depth.jpg", camera, group, background, near, far)
 
 
 print("Started")
-# RenderScene('scene1_diffuse', 9, 11)
-# RenderScene('scene2_ambient', 8, 11.5)
-# RenderScene('scene3_perspective', 8, 11.5)
+RenderScene('scene1_diffuse', 9, 11)
+RenderScene('scene2_ambient', 8, 11.5)
+RenderScene('scene3_perspective', 8, 11.5)
+RenderScene('scene4_plane', 8, 11.5)
 RenderScene('scene5_sphere_triangle', 8, 11.5)
+RenderScene('scene6_squashed_sphere', 8, 11.5)
+RenderScene('scene7_squashed_rotated_sphere', 8, 11.5)
 
 print("Finished")

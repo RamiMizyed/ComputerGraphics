@@ -1,6 +1,6 @@
 import math
 
-from Vector3Math import Vector3
+from cgtypes import *
 from RayHit import Ray
 
 
@@ -10,7 +10,7 @@ class Camera:
 
 
 class OrthographicCamera(Camera):
-    def __init__(self, center: Vector3, direction: Vector3, up: Vector3, size):
+    def __init__(self, center: vec3, direction: vec3, up: vec3, size):
         self.center = center
         self.direction = direction
         self.up = up
@@ -24,12 +24,12 @@ class OrthographicCamera(Camera):
 
 class PerspectiveCamera(Camera):
 
-    def __init__(self, center: Vector3, direction: Vector3, up: Vector3, angle):
+    def __init__(self, center: vec3, direction: vec3, up: vec3, angle):
         self.center = center
         self.direction = direction
         self.up = up
         self.angle = angle
-        self.right: Vector3 = direction.cross(up)
+        self.right: vec3 = direction.cross(up)
         angleRadians: float = self.angle * math.pi/180
         muqabil = math.tan(angleRadians/2)
         self.leftestSide = muqabil * -self.right
@@ -39,8 +39,8 @@ class PerspectiveCamera(Camera):
     def Generate_ray(self, x, y):
         rightInterpolated = (-self.leftestSide*2*x)
         upInterpolated = (-self.bottomestSide*2*y)
-        newDirection: Vector3 = self.bottomLeftCorner + rightInterpolated + upInterpolated
-        return Ray(self.center, newDirection.normal())
+        newDirection: vec3 = self.bottomLeftCorner + rightInterpolated + upInterpolated
+        return Ray(self.center, newDirection.normalize())
 
 
 
