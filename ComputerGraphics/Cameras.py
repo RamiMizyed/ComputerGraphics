@@ -1,7 +1,7 @@
 import math
 
 from cgtypes import *
-from RayHit import Ray
+from ray import Ray
 
 
 class Camera:
@@ -41,9 +41,6 @@ class PerspectiveCamera(Camera):
         upInterpolated = (-self.bottomestSide*2*y)
         newDirection: vec3 = self.bottomLeftCorner + rightInterpolated + upInterpolated
         return Ray(self.center, newDirection.normalize())
-
-
-
 
 
 

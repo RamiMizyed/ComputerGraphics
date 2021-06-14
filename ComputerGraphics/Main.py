@@ -1,6 +1,4 @@
 # Name : Rami Mizyed
-# Date: 14-may-2021
-
 
 # imports
 import json
@@ -8,7 +6,6 @@ from builtins import map
 
 from PIL import Image
 from Cameras import *
-from RayHit import *
 from Objects import *
 from Group import Group
 from tqdm import tqdm
@@ -48,15 +45,14 @@ def Render(filename, camera, group, background, light: DirectionalLight, ambient
             hit = Hit()
             for object in group.objects:
                 object.intersect(ray, hit, 0.0)
-                if hit.t > 0 and hit.intersect is True:
+                if hit.intersect is True:
                     transposeM: mat4 = object.transformationMatrix.inverse().transpose()
-
                     normalTransposed: vec3 = (transposeM * hit.normal).normalize()
 
                     lightDir = vec3(-light.direction.x, -light.direction.y, -light.direction.z).normalize()
                     lightIntensity = max(normalTransposed * lightDir, 0)
-                    ambientColor = tuple(map(mul, hit.color, ambient))
-                    diffuseColor = tuple(map(mul, hit.color, light.color))
+                    ambientColor = tuple(map(mul, hit.material, ambient))
+                    diffuseColor = tuple(map(mul, hit.material, light.color))
                     diffuseColor = tuple(map(mul, diffuseColor, [lightIntensity, lightIntensity, lightIntensity]))
                     finalColor = list(map(add, ambientColor, diffuseColor))
                     pixels[x, resY - y - 1] = tuple(map(mulI, finalColor, [255, 255, 255]))

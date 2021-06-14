@@ -1,21 +1,34 @@
-import numpy as np
-from cgtypes import *
-from math import *
-from RayHit import *
 import sys
+from math import *
+from hit import *
+from ray import Ray
+
+from cgtypes import *
+
+
+def transform(v3:vec3, matrix: mat4):
+    return vec3(v3.x * matrix[0, 0] + v3.y * matrix[0, 1] + v3.z * matrix[0, 2] + matrix[0, 3],
+                v3.x * matrix[1, 0] + v3.y * matrix[1, 1] + v3.z * matrix[1, 2] + matrix[1, 3],
+                v3.x * matrix[2, 0] + v3.y * matrix[2, 1] + v3.z * matrix[2, 2] + matrix[2, 3])
+
+
+def transfromNormal(v3:vec3, matrix: mat4):
+    return vec3(v3.x * matrix[0, 0] + v3.y * matrix[0, 1] + v3.z * matrix[0, 2],
+                v3.x * matrix[1, 0] + v3.y * matrix[1, 1] + v3.z * matrix[1, 2],
+                v3.x * matrix[2, 0] + v3.y * matrix[2, 1] + v3.z * matrix[2, 2])
 
 
 class Object3D:
-    def __init__(self, color):
-        self.color = color
+    def __init__(self, material):
+        self.material = None
 
     def intersect(self, ray: vec3, hit: vec3, tmin):
         pass
 
 
 class Plane(Object3D):
-    def __init__(self, normal: vec3, d, color):
-        super().__init__(color)
+    def __init__(self, normal: vec3, d, material):
+        super().__init__(material)
         self.normal = normal
         self.d: vec3 = d * normal
 
@@ -27,7 +40,7 @@ class Plane(Object3D):
         t: float = (-self.normal * distance) / denominator
         if hit.t > t > 0:
             hit.t = t
-            hit.color = self.color
+            hit.material = self.material
             hit.normal = self.normal
             hit.intersect = True
 
@@ -37,8 +50,8 @@ class Plane(Object3D):
 
 class Sphere(Object3D):
 
-    def __init__(self, center: vec3, radius: float, color):
-        Object3D.__init__(self, color)
+    def __init__(self, center: vec3, radius: float, material):
+        Object3D.__init__(self, material)
         self.center = center
         self.radius = radius
 
@@ -65,7 +78,7 @@ class Sphere(Object3D):
 
         if hit.t > t0 > 0:
             hit.t = t0
-            hit.color = self.color
+            hit.material = self.material
             p0 = ray.origin + ray.direction * t0
             hit.normal = (p0 - self.center).normalize()
             hit.intersect = True
@@ -73,8 +86,8 @@ class Sphere(Object3D):
 
 class Triangle(Object3D):
 
-    def __init__(self, v0: vec3, v1: vec3, v2: vec3, color):
-        super().__init__(color)
+    def __init__(self, v0: vec3, v1: vec3, v2: vec3, material):
+        super().__init__(material)
         self.v0 = v0
         self.v1 = v1
         self.v2 = v2
@@ -82,11 +95,10 @@ class Triangle(Object3D):
     def intersect(self, ray: Ray, hit: Hit, tmin):
         v0v1: vec3 = self.v1 - self.v0
         v0v2: vec3 = self.v2 - self.v0
-        pvec: vec3 = vec3.cross(ray.direction, v0v2)
+        pvec: vec3 = ray.direction.cross(v0v2)
         determinant: float = v0v1 * pvec
         if determinant < sys.float_info.epsilon:
             return
-
         if fabs(determinant) < sys.float_info.epsilon:
             return
         inverse: float = 1 / determinant
@@ -94,23 +106,23 @@ class Triangle(Object3D):
         u: float = tvec * pvec * inverse
         if u < 0 or u > 1:
             return
-        qvec: vec3 = vec3.cross(tvec, v0v1)
+        qvec: vec3 = tvec.cross(v0v1)
         v: float = ray.direction * qvec * inverse
-        if u < 0 or (u + v > 1):
+        if v < 0 or (u + v > 1):
             return
 
         t: float = v0v2 * qvec * inverse
 
         if t > 0 and t > tmin and t < hit.t:
-            hit.color = self.color
+            hit.material = self.material
             hit.t = t
-            hit.normal = vec3.cross(v0v1, v0v2).normalize()
+            hit.normal = v0v1.cross(v0v2).normalize()
             hit.intersect = True
 
 
 class Transformation(Object3D):
-    def __init__(self, color, transformationMatrix: mat4, object3d):
-        super().__init__(color)
+    def __init__(self, material, transformationMatrix: mat4, object3d):
+        super().__init__(material)
         self.transformationMatrix: mat4 = transformationMatrix
         self.object3d = object3d
 
@@ -118,7 +130,7 @@ class Transformation(Object3D):
 
         invMat: mat4 = self.transformationMatrix.inverse()
 
-        ray.direction = invMat * ray.direction
+        ray.direction = transfromNormal(ray.direction, invMat).normalize()
 
-        ray.origin = invMat * ray.origin
+        ray.origin = transform(ray.origin, invMat)
         self.object3d.intersect(ray, hit, tmin)
