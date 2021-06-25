@@ -6,11 +6,11 @@
 		"angle" : 30
 	},
 	"background" : {
-		"color" : [0.2, 0, 0.6],
+		"color" : [0, 0, 0],
 		"ambient" : [0.1, 0.1, 0.1]
 	},
 	"light" : {
-		"direction" : [-0.5, -0.5, -1],
+		"direction" : [0.5, -0.5, -1],
 		"color" : [0.9, 0.9, 0.9]
 	},
 	"group" : [
@@ -23,30 +23,37 @@
 		},
 		{ 
 			"sphere" : {
-				"center" : [1, 1, 1],
+				"center" : [-1, 1, 1],
 				"radius" : 0.75,
 				"color" : [0, 1, 0]
 			}
 		},
 		{ 
 			"sphere" : {
-				"center" : [-1, -1, 1],
+				"center" : [1, -1, 1],
 				"radius" : 0.75,
 				"color" : [0, 1, 0]
 			}
 		},
 		{ 
 			"sphere" : {
-				"center" : [-1, 1, -1],
+				"center" : [1, 1, -1],
 				"radius" : 0.75,
 				"color" : [0, 0, 1]
 			}
 		},
 		{ 
 			"sphere" : {
-				"center" : [1, -1, -1],
+				"center" : [-1, -1, -1],
 				"radius" : 0.75,
 				"color" : [0, 0, 1]
+			}
+		},
+		{
+			"plane" : {
+				"normal" : [0, 1, 0],
+				"offset" : -2,
+				"color" : [1, 1, 1]	
 			}
 		}
 	]

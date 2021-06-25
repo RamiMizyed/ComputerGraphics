@@ -6,20 +6,17 @@
 		"size" : 2.5
 	},
 	"background" : {
-		"color" : [0.0, 0, 0.0],
+		"color" : [0, 0, 0],
 		"ambient" : [0, 0, 0]
 	},
 	"light" : {
-		"direction" : [-0.2, -0.2, -1],
+		"direction" : [0.2, -0.2, -1],
 		"color" : [1, 1, 1]
 	},
 	"group" : [
 		{ 
 			"transform" : {
 				"transformations" : [
-					{
-						"zrotate" : 45
-					},
 					{
 						"scale" : [1, 0.2, 1]
 					}

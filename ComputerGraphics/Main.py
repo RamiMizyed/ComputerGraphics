@@ -1,203 +1,162 @@
 # Name : Rami Mizyed
 
-# imports
 import json
-from builtins import map
+import math
 
-from PIL import Image
-from Cameras import *
-from Objects import *
-from Group import Group
-from tqdm import tqdm
+from renderer import Renderer
+
+from Material import *
+
+# region Cameras
+from perspectiveCamera import PerspectiveCamera
+from orthographicCamera import OrthographicCamera
+# endregion
+
+# region Lights
 from Lights import *
-from cgtypes import *
+# endregion
 
-resX = 300
-resY = 300
+# region Object Imports
+from plane import Plane
+from sphere import Sphere
+from triangle import Triangle
+from group import Group
+from transformation import Transformation
+
+# endregion
+
+resX = 1000
+resY = 1000
 
 
 # main render function takes a json file with needed information
-def add(x, y):
-    return x + y
 
 
-def mul(x, y):
-    return x * y
-
-
-def mulI(x, y):
-    return int(x * y)
-
-
-def Render(filename, camera, group, background, light: DirectionalLight, ambient):
-    img = Image.new("RGB", (resX, resY))
-    pixels = img.load()
-
-    for y in range(resY):
-        for x in range(resX):
-            pixels[x, y] = tuple([int(background[0] * 255), int(background[1] * 255), int(background[2] * 255)])
-
-    for y in tqdm(range(resY), desc="Render Loop"):
-        yy = y / resY
-        for x in range(resX):
-            xx = x / resX
-            ray = camera.Generate_ray(xx, yy)
-            hit = Hit()
-            for object in group.objects:
-                object.intersect(ray, hit, 0.0)
-                if hit.intersect is True:
-                    transposeM: mat4 = object.transformationMatrix.inverse().transpose()
-                    normalTransposed: vec3 = (transposeM * hit.normal).normalize()
-
-                    lightDir = vec3(-light.direction.x, -light.direction.y, -light.direction.z).normalize()
-                    lightIntensity = max(normalTransposed * lightDir, 0)
-                    ambientColor = tuple(map(mul, hit.material, ambient))
-                    diffuseColor = tuple(map(mul, hit.material, light.color))
-                    diffuseColor = tuple(map(mul, diffuseColor, [lightIntensity, lightIntensity, lightIntensity]))
-                    finalColor = list(map(add, ambientColor, diffuseColor))
-                    pixels[x, resY - y - 1] = tuple(map(mulI, finalColor, [255, 255, 255]))
-
-    img.save(filename, format="JPEG")
-
-
-def test():
-    img = Image.new("RGB", (resX, resY))
-    pixels = img.load()
-    for y in range(resY):
-        for x in range(resX):
-            pixels[x, resY - y - 1] = tuple([int((x * 255 / resX)), int(y * 255 / resY), 64])
-
-    img.show()
-
-
-def RenderDepth(filename, camera, group, background, near, far):
-    img = Image.new("RGB", (resX, resY), "black")
-    pixels = img.load()
-
-    for y in range(resY):
-        for x in range(resX):
-            pixels[x, y] = tuple([int(background[0] * 255), int(background[1] * 255), int(background[2] * 255)])
-
-    for y in tqdm(range(resY), desc="DepthRender", colour="White"):
-        yy = y / resY
-        for x in range(resX):
-
-            xx = x / resX
-            ray = camera.Generate_ray(xx, yy)
-            hit = Hit()
-            for object in group.objects:
-                object.intersect(ray, hit, 0.0)
-                if hit.t > 0 and hit.intersect is True:
-                    depth_1 = (far - hit.t) / (far - near)
-                    depth = int(depth_1 * 255)
-                    pixels[x, resY - y - 1] = tuple([depth, depth, depth])
-
-    img.save(filename, format="JPEG")
-
-
-def RenderScene(scene, near, far):
+def render_scene(scene, near, far, max_depth):
     with open("Data/" + scene + '.json') as f:
         data = json.load(f)
-    lightDirection = data["light"]["direction"]
-    lightDirectionVec = vec3(lightDirection[0], lightDirection[1], lightDirection[2])
-    lightColor = data["light"]["color"]
-    light: DirectionalLight = DirectionalLight(lightDirectionVec, lightColor)
+
     ambient = data["background"]["ambient"]
-
-    if "orthocamera" in data.keys():
-        camPos = data['orthocamera']['center']
-        camVec = vec3(camPos[0], camPos[1], camPos[2])
-        camDir = data['orthocamera']['direction']
-        camDirVec = vec3(camDir[0], camDir[1], camDir[2])
-        camUp = data['orthocamera']['up']
-        camUpVec = vec3(camUp[0], camUp[1], camUp[2])
-        size = data['orthocamera']['size']
-        camera = OrthographicCamera(camVec, camDirVec, camUpVec, size)
-    elif "perspectivecamera" in data.keys():
-        camPos = data['perspectivecamera']['center']
-        camVec = vec3(camPos[0], camPos[1], camPos[2])
-        camDir = data['perspectivecamera']['direction']
-        camDirVec = vec3(camDir[0], camDir[1], camDir[2])
-        camUp = data['perspectivecamera']['up']
-        camUpVec = vec3(camUp[0], camUp[1], camUp[2])
-        angle = data['perspectivecamera']['angle']
-        camera = PerspectiveCamera(camVec, camDirVec, camUpVec, angle)
-
     background = data['background']['color']
+
+    # region Lights
+    lights = []
+    if "light" in data.keys():
+        light = data["light"]
+        lightDirection = vec3(light["direction"]).normalize()
+        lightColor = light["color"]
+        lights.append(DirectionalLight(lightDirection, lightColor))
+    elif "lights" in data.keys():
+        for light in data['lights']:
+            if 'directionalLight' in light.keys():
+                lightInfo = light['directionalLight']
+                lightDirection = vec3(lightInfo["direction"]).normalize()
+                lightColor = lightInfo["color"]
+                lights.append(DirectionalLight(lightDirection, lightColor))
+    # endregion
+
+    # region Cameras
+    camera = None
+    if "orthocamera" in data.keys():
+        camPos = vec3(data['orthocamera']['center'])
+        camDir = vec3(data['orthocamera']['direction']).normalize()
+        camUp = vec3(data['orthocamera']['up']).normalize()
+        size = data['orthocamera']['size']
+        camera = OrthographicCamera(camPos, camDir, camUp, size)
+    elif "perspectivecamera" in data.keys():
+        camPos = vec3(data['perspectivecamera']['center'])
+        camDir = vec3(data['perspectivecamera']['direction']).normalize()
+        camUp = vec3(data['perspectivecamera']['up']).normalize()
+        angle = data['perspectivecamera']['angle']
+        camera = PerspectiveCamera(camPos, camDir, camUp, angle)
+    # endregion
+
+    # region Materials
+    materials = []
+    for material in data['materials']:
+        if "phongMaterial" in material.keys():
+            matInfo = dict(material['phongMaterial'])
+            diffuseColor = matInfo.get('diffuseColor')
+            specularColor = matInfo.get('specularColor')
+            exponent = matInfo.get('exponent')
+            transparentColor = matInfo.get('transparentColor')
+            reflectiveColor = matInfo.get('reflectiveColor')
+            ior = matInfo.get('indexOfRefraction')
+            newMat = PhongMaterial(specularColor, exponent, diffuseColor, reflectiveColor, transparentColor, ior)
+            materials.append(newMat)
+    # endregion
+
+    # region object parsing
     group = Group([0, 0, 0])
     for item in data['group']:
+        objToAdd = None
+        objInfo = item
+        if 'transform' in item.keys():
+            objInfo = item["transform"]["object"]
+
+        if "sphere" in objInfo.keys():
+            sCenter = vec3(objInfo['sphere']['center'])
+            radius = objInfo['sphere']['radius']
+            material = materials[objInfo['sphere']['material']]
+            objToAdd = Sphere(sCenter, radius, material)
+        elif "plane" in objInfo.keys():
+            normal = vec3(objInfo['plane']['normal']).normalize()
+            offset = objInfo['plane']['offset']
+            material = materials[objInfo['plane']['material']]
+            objToAdd = Plane(normal, offset, material)
+        elif "triangle" in objInfo.keys():
+            v1 = vec3(objInfo["triangle"]["v1"])
+            v2 = vec3(objInfo["triangle"]["v2"])
+            v3 = vec3(objInfo["triangle"]["v3"])
+            material = materials[objInfo['triangle']['material']]
+            objToAdd = Triangle(v1, v2, v3, material)
+
         finalMatrix = mat4(1.0)
+        metrices = []
         if 'transform' in item.keys():
             for transformation in item['transform']["transformations"]:
                 if 'zrotate' in transformation.keys():
                     zrotate = transformation['zrotate']
                     zrotate = zrotate * math.pi / 180
-                    mate = mat4(1.0)
-                    zvec = vec3(0, 0, 1)
-                    newRotatedMatrixZ = mate.rotation(zrotate, zvec)
-                    finalMatrix = finalMatrix * newRotatedMatrixZ
+                    matrix = mat4(1.0).rotation(zrotate, vec3(0, 0, 1))
+                    metrices.append(matrix)
                 if 'xrotate' in transformation.keys():
                     xrotate = transformation['xrotate']
                     xrotate = xrotate * math.pi / 180
-                    mate = mat4(1.0)
-                    xvec = vec3(1, 0, 0)
-                    newRotatedMatrixX = mate.rotation(xrotate, xvec)
-                    finalMatrix = finalMatrix * newRotatedMatrixX
+                    matrix = mat4(1.0).rotation(xrotate, vec3(1, 0, 0))
+                    metrices.append(matrix)
                 if 'yrotate' in transformation.keys():
                     yrotate = transformation['yrotate']
                     yrotate = yrotate * math.pi / 180
-                    mate = mat4(1.0)
-                    yvec = vec3(0, 1, 0)
-                    newRotatedMatrixY = mate.rotation(yrotate, yvec)
-                    finalMatrix = finalMatrix * newRotatedMatrixY
-
+                    matrix = mat4(1.0).rotation(yrotate, vec3(0, 1, 0))
+                    metrices.append(matrix)
                 if 'scale' in transformation.keys():
-                    mate = mat4(1.0)
-                    transformations = transformation['scale']
-                    transformations = vec3(transformations[0], transformations[1], transformations[2])
-                    scaleMatrix = mate.scaling(transformations)
-                    finalMatrix = finalMatrix * scaleMatrix
+                    scaleVec = vec3(transformation['scale'])
+                    matrix = mat4(1.0).scaling(scaleVec)
+                    metrices.append(matrix)
                 if 'translate' in transformation.keys():
-                    mate = mat4(1.0)
-                    translate = transformation['translate']
-                    translate = vec3(translate[0], translate[1], translate[2])
-                    transMatrix = mate.translation(translate)
-                    finalMatrix = finalMatrix * transMatrix
-            item = item["transform"]["object"]
-        objectTransformation = None
-        if "sphere" in item.keys():
-            sCenter = item['sphere']['center']
-            sCenterVec = vec3(sCenter[0], sCenter[1], sCenter[2])
-            radius = item['sphere']['radius']
-            color = item['sphere']['color']
-            objectTransformation = Transformation([0, 0, 0], finalMatrix, Sphere(sCenterVec, radius, color))
-        elif "plane" in item.keys():
-            normal = item['plane']['normal']
-            normal = vec3(normal[0], normal[1], normal[2])
-            offset = item['plane']['offset']
-            color = item['plane']['color']
-            objectTransformation = Transformation([0, 0, 0], finalMatrix, Plane(normal, offset, color))
-        elif "triangle" in item.keys():
-            v1 = item["triangle"]["v1"]
-            v1 = vec3(v1[0], v1[1], v1[2])
-            v2 = item["triangle"]["v2"]
-            v2 = vec3(v2[0], v2[1], v2[2])
-            v3 = item["triangle"]["v3"]
-            v3 = vec3(v3[0], v3[1], v3[2])
-            color = item['triangle']['color']
-            objectTransformation = Transformation([0, 0, 0], finalMatrix, Triangle(v1, v2, v3, color))
-        group.add(objectTransformation)
-    Render("Render/" + scene + '.jpg', camera, group, background, light, ambient)
-    RenderDepth("Render/" + scene + "_depth.jpg", camera, group, background, near, far)
+                    translateVec = vec3(transformation['translate'])
+                    matrix = mat4(1.0).translation(translateVec)
+                    metrices.append(matrix)
+
+            for matrix in metrices:
+                finalMatrix *= matrix
+            objToAdd = Transformation(None, finalMatrix, objToAdd)
+
+        group.add(objToAdd)
+    # endregion
+
+    renderer = Renderer(group, camera, lights, resX, resY, background, ambient, max_depth)
+    renderer.render("Render/" + scene + '.jpg')
+    # renderer.render_depth("Render/" + scene + "_depth.jpg", near, far)
 
 
-print("Started")
-RenderScene('scene1_diffuse', 9, 11)
-RenderScene('scene2_ambient', 8, 11.5)
-RenderScene('scene3_perspective', 8, 11.5)
-RenderScene('scene4_plane', 8, 11.5)
-RenderScene('scene5_sphere_triangle', 8, 11.5)
-RenderScene('scene6_squashed_sphere', 8, 11.5)
-RenderScene('scene7_squashed_rotated_sphere', 8, 11.5)
-
-print("Finished")
+if __name__ == "__main__":
+    print("Started")
+    render_scene('scene1_exponent_variations', 8, 11.5, 3)
+    render_scene('scene2_plane_sphere', 8, 11.5, 3)
+    render_scene('scene3_colored_lights', 8, 11.5, 3)
+    render_scene('scene4_reflective_sphere', 8, 11.5, 3)
+    render_scene('scene5_transparent_sphere', 8, 11.5, 3)
+    render_scene('scene6_transparent_sphere2', 8, 11.5, 3)
+    print("Finished")
